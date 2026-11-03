@@ -6,7 +6,7 @@ from busquedas import amplitud
 
 
 def main():
-    mapa = cargar_mundo("Prueba1.txt")
+    mapa = cargar_mundo(ruta)
     imprimir_mundo(mapa)
 
     robot, deposito, avioneta, cultivos = extraer_info(mapa)
