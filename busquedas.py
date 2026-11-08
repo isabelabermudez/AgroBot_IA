@@ -3,7 +3,7 @@ import heapq
 from collections import deque
 from itertools import count
 
-from nucleo import Nodo, es_meta, expandir, reconstruir_camino
+from nucleo import Nodo, heuristica, es_meta, expandir, heuristica, reconstruir_camino
 
 
 def amplitud(estado_inicial, mundo, info):
@@ -175,3 +175,48 @@ def preferente_por_profundidad_pila(estado_inicial, mundo, info):
     return None  # no hay solucion
 
 
+def busqueda_avara(estado_inicial, mundo, info):
+    inicio = time.perf_counter()
+
+    contador = count()  # contador para romper empates en la cola de prioridad
+        
+    raiz = Nodo(estado_inicial)
+
+    cola_avara = []
+    visitados = set()  # estados ya expandidos
+
+    heapq.heappush(
+        cola_avara, 
+        (heuristica(raiz.estado),
+        next(contador),
+        raiz)
+        )
+
+    expandidos = 0
+    profundidad_max = 0
+
+    while cola_avara:
+        _, _, nodo = heapq.heappop(cola_avara)
+
+        if nodo.estado in visitados:
+            continue  # ya se visitó este estado
+        visitados.add(nodo.estado)
+
+        if es_meta(nodo.estado):
+            operadores, estados = reconstruir_camino(nodo)
+            return {
+                "operadores": operadores,
+                "estados": estados,
+                "expandidos": expandidos,
+                "profundidad": profundidad_max,
+                "costo": nodo.costo,
+                "tiempo": time.perf_counter() - inicio,
+            }
+
+        expandidos += 1
+        for hijo in expandir(nodo, mundo, info):
+            if hijo.estado not in visitados:
+                profundidad_max = max(profundidad_max, hijo.profundidad) 
+                heapq.heappush(cola_avara,(heuristica(hijo.estado),next(contador), hijo))
+
+    return None  # no hay solucion
