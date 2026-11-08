@@ -220,3 +220,58 @@ def busqueda_avara(estado_inicial, mundo, info):
                 heapq.heappush(cola_avara,(heuristica(hijo.estado),next(contador), hijo))
 
     return None  # no hay solucion
+
+
+def busqueda_a_estrella(estado_inicial, mundo, info):
+    inicio = time.perf_counter()
+    
+    contador = count()  # contador para romper empates en la cola de prioridad
+    
+    raiz = Nodo(estado_inicial)
+    cola_prioridad = []
+
+    # prioridad  f = g + h
+    heapq.heappush(
+        cola_prioridad, 
+        ( raiz.costo + heuristica(raiz.estado),
+        next(contador),
+        raiz)
+        )
+    
+    mejores_costos = {estado_inicial: raiz.costo}  # diccionario de estados ya generados con mejor costo g conocido
+
+    expandidos = 0
+    profundidad_max = 0
+    
+    while cola_prioridad:
+        _, _, nodo = heapq.heappop(cola_prioridad)
+
+        if nodo.costo > mejores_costos[nodo.estado]:
+            continue  # ya se encontró un camino más barato a este estado
+        
+        if es_meta(nodo.estado):
+            operadores, estados = reconstruir_camino(nodo)
+            return {
+                "operadores": operadores,
+                "estados": estados,
+                "expandidos": expandidos,
+                "profundidad": profundidad_max,
+                "costo": nodo.costo,
+                "tiempo": time.perf_counter() - inicio,
+            }
+            
+        expandidos += 1
+
+        for hijo in expandir(nodo, mundo, info):
+
+            costo_anterior = mejores_costos.get(hijo.estado)
+            
+            if costo_anterior is None or hijo.costo < costo_anterior:
+                
+                mejores_costos[hijo.estado] = hijo.costo
+                profundidad_max = max(profundidad_max, hijo.profundidad) 
+                costo_estimado_hijo = hijo.costo + heuristica(hijo.estado)
+
+                heapq.heappush(cola_prioridad,(costo_estimado_hijo,next(contador), hijo))
+                
+    return None  # no hay solucion

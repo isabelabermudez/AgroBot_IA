@@ -2,7 +2,7 @@ from mundo import cargar_mundo, imprimir_mundo, extraer_info
 import os
 ruta = os.path.join(os.path.dirname(__file__), "Prueba1.txt")
 from nucleo import crear_estado_inicial, crear_info, heuristica
-from busquedas import amplitud, costo_uniforme, preferente_por_profundidad, preferente_por_profundidad_pila, busqueda_avara
+from busquedas import amplitud, costo_uniforme, preferente_por_profundidad, preferente_por_profundidad_pila, busqueda_avara, busqueda_a_estrella
 
 def main():
     mapa = cargar_mundo(ruta)
@@ -14,7 +14,7 @@ def main():
 
     print("Costo estimado desde el estado inicial:", heuristica(estado))
 
-    algoritmo = int(input("Ingrese el algoritmo a utilizar (1: Amplitud, 2: Costo , 3: Preferente por profundidad, 4: Preferente por profundidad (pila)), 5: Búsqueda Avara: "))
+    algoritmo = int(input("Ingrese el algoritmo a utilizar (1: Amplitud, 2: Costo , 3: Preferente por profundidad, 4: Preferente por profundidad (pila)), 5: Búsqueda Avara, 6: Búsqueda A*: "))
 
     if algoritmo == 1:
         resultado = amplitud(estado, mapa, info)
@@ -26,6 +26,8 @@ def main():
         resultado = preferente_por_profundidad_pila(estado, mapa, info)
     elif algoritmo == 5:
         resultado = busqueda_avara(estado, mapa, info)
+    elif algoritmo == 6:
+        resultado = busqueda_a_estrella(estado, mapa, info)
     else:
         print("Algoritmo no válido")
         return
