@@ -149,3 +149,20 @@ def reconstruir_camino(nodo):
     operadores.reverse()
     estados.reverse()
     return operadores, estados
+
+#  h(n) = distancia Manhattan al cultivo pendiente más lejano * costo mínimo por paso (0.5)
+def heuristica(estado):  
+    
+    cultivos = estado.cultivos
+
+    if not cultivos:
+        return 0  # No hay cultivos pendientes, heurística es 0
+    
+    mas_lejano= max(distancia_manhattan(estado.pos, c) for c in estado.cultivos)  # Tomamos la distancia mínima al cultivo más lejano
+
+
+    return mas_lejano * COSTO_AVIONETA  # Costo estimado 
+
+def distancia_manhattan(pos1, pos2):
+    return abs(pos1[0] - pos2[0]) + abs(pos1[1] - pos2[1])
+
