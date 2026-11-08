@@ -2,8 +2,7 @@ from mundo import cargar_mundo, imprimir_mundo, extraer_info
 import os
 ruta = os.path.join(os.path.dirname(__file__), "Prueba1.txt")
 from nucleo import crear_estado_inicial, crear_info, sucesores
-from busquedas import amplitud, costo_uniforme
-
+from busquedas import amplitud, costo_uniforme, preferente_por_profundidad, preferente_por_profundidad_pila
 
 def main():
     mapa = cargar_mundo(ruta)
@@ -13,12 +12,16 @@ def main():
     estado = crear_estado_inicial(robot, cultivos)
     info = crear_info(deposito, avioneta)
 
-    algoritmo = int(input("Ingrese el algoritmo a utilizar (1: Amplitud, 2: Costo Uniforme): "))
+    algoritmo = int(input("Ingrese el algoritmo a utilizar (1: Amplitud, 2: Costo , 3: Preferente por profundidad, 4: Preferente por profundidad (pila)): "))
 
     if algoritmo == 1:
         resultado = amplitud(estado, mapa, info)
     elif algoritmo == 2:
         resultado = costo_uniforme(estado, mapa, info)
+    elif algoritmo == 3:
+        resultado = preferente_por_profundidad(estado, mapa, info)
+    elif algoritmo == 4:
+        resultado = preferente_por_profundidad_pila(estado, mapa, info)
     else:
         print("Algoritmo no válido")
         return
