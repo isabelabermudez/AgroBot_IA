@@ -171,6 +171,13 @@ def heuristica(estado, info):
     else:
         pasos_totales = max(distancia_manhattan(estado.pos, c) for c in estado.cultivos)
 
+        # Si hay más cultivos que unidades, debe pasar por el depósito
+        if len(estado.cultivos) > estado.fertilizante:
+            recorrido_total = (distancia_manhattan(estado.pos, info.deposito)
+                            + min(distancia_manhattan(info.deposito, c) for c in estado.cultivos))
+            pasos_totales = max(pasos_totales, recorrido_total)
+
+
     
     return costo_minimo(pasos_totales, estado.combustible) 
 
