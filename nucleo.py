@@ -34,6 +34,11 @@ class Estado:
     cultivos: frozenset     # coordenadas de cultivos secos pendientes
     combustible: int        # -1 sin subir, 30..1 montado con combustible, 0 agotado
 
+    def clave(self):
+        """Clave para detectar ciclos: ignora cuánto combustible queda,
+        pero distingue si ya se montó en la avioneta."""
+        return (self.pos, self.fertilizante, self.cultivos, self.combustible != SIN_SUBIR)
+
 
 # ---------------------------------------------------------------
 # Nodo del arbol de busqueda
