@@ -13,13 +13,19 @@ from busquedas import (
 )
 from mundo import cargar_mundo, extraer_info
 from nucleo import crear_estado_inicial, crear_info
-from reporte import mostrar_reporte
+from reporte import generar_reporte
 
 
-ANCHO = 1080
-ALTO = 740
-TAM_CASILLA = 56
-ORIGEN_TABLERO = (32, 132)
+ANCHO = 1600
+ALTO = 1040
+ESCALA_VENTANA = 0.94
+ANCHO_VENTANA = round(ANCHO * ESCALA_VENTANA)
+ALTO_VENTANA = round(ALTO * ESCALA_VENTANA)
+TAM_CASILLA = 78
+ORIGEN_TABLERO = (48, 180)
+PANEL_X = 880
+PANEL_Y = 150
+PANEL_ANCHO = 672
 ALGORITMOS = {
     "no_informada": [
         ("amplitud", "Amplitud"),
@@ -44,18 +50,27 @@ NOMBRES_ALGORITMOS = {
     for codigo, nombre in opciones
 }
 
-FONDO = (240, 244, 239)
-PANEL = (255, 255, 255)
-TEXTO = (35, 48, 41)
-SECUNDARIO = (105, 117, 109)
-VERDE = (42, 112, 78)
-VERDE_CLARO = (221, 239, 223)
-BORDE = (210, 219, 211)
-OBSTACULO = (68, 77, 70)
-CULTIVO_SECO = (235, 187, 91)
-CULTIVO_TRATADO = (116, 178, 107)
-AZUL = (84, 151, 196)
-ROJO = (198, 83, 73)
+FONDO = (23, 39, 34)
+FONDO_PANEL = (34, 55, 46)
+TARJETA = (44, 69, 55)
+TARJETA_CLARA = (53, 81, 62)
+TEXTO = (242, 232, 198)
+SECUNDARIO = (180, 195, 159)
+VERDE = (127, 190, 105)
+VERDE_CLARO = (207, 226, 151)
+DORADO = (238, 187, 91)
+BORDE = (96, 129, 83)
+OBSTACULO = (38, 51, 43)
+TIERRA = (107, 133, 83)
+ROJO = (220, 111, 73)
+
+ASSETS = {
+    "tierra_seca": "Parched_Pixel_Garden_Tile-removebg-preview.png",
+    "cultivo_tratado": "Pixel-Art_Garden_Plot-removebg-preview.png",
+    "avioneta": "avioneta-removebg-preview.png",
+    "fertilizante": "fertilizante.png",
+    "robot": "robot_transparente(1).png",
+}
 
 
 def validar_mundo(mundo):
@@ -76,14 +91,16 @@ def validar_mundo(mundo):
 class AgroBotApp:
     def __init__(self):
         pygame.init()
-        pygame.display.set_caption("AgroBot - Búsqueda en terrenos agrícolas")
-        self.pantalla = pygame.display.set_mode((ANCHO, ALTO))
+        pygame.display.set_caption("AgroBot ")
+        self.ventana = pygame.display.set_mode((ANCHO_VENTANA, ALTO_VENTANA))
+        self.pantalla = pygame.Surface((ANCHO, ALTO))
         self.reloj = pygame.time.Clock()
-        self.fuente = pygame.font.SysFont("arial", 19)
-        self.fuente_pequena = pygame.font.SysFont("arial", 15)
-        self.fuente_titulo = pygame.font.SysFont("arial", 27, bold=True)
-        self.fuente_casilla = pygame.font.SysFont("arial", 17, bold=True)
+        self.fuente = pygame.font.SysFont("dejavusansmono", 20, bold=True)
+        self.fuente_pequena = pygame.font.SysFont("dejavusansmono", 16)
+        self.fuente_titulo = pygame.font.SysFont("dejavusansmono", 36, bold=True)
+        self.fuente_casilla = pygame.font.SysFont("dejavusansmono", 17, bold=True)
 
+        self.sprites = self.cargar_sprites()
         self.ruta = os.path.join(os.path.dirname(__file__), "Prueba1.txt")
         self.campo_activo = False
         self.categoria = "no_informada"
@@ -96,11 +113,31 @@ class AgroBotApp:
         self.indice_animacion = 0
         self.ultimo_paso = 0
         self.resultado = None
+        self.reporte = None
         self.mensaje = "Selecciona un archivo de mundo para comenzar."
         self.error = False
 
         if os.path.isfile(self.ruta):
             self.cargar_archivo()
+
+    def cargar_sprites(self):
+        carpeta = os.path.join(os.path.dirname(__file__), "images")
+        sprites = {}
+        for nombre, archivo in ASSETS.items():
+            ruta_sprite = os.path.join(carpeta, archivo)
+            if not os.path.isfile(ruta_sprite):
+                raise FileNotFoundError(f"No se encontró el recurso gráfico requerido: {ruta_sprite}")
+            sprites[nombre] = pygame.image.load(ruta_sprite).convert_alpha()
+        return sprites
+
+    def sprite_ajustado(self, nombre, ancho, alto):
+        imagen = self.sprites[nombre]
+        escala = min(ancho / imagen.get_width(), alto / imagen.get_height())
+        tamano = (
+            max(1, round(imagen.get_width() * escala)),
+            max(1, round(imagen.get_height() * escala)),
+        )
+        return pygame.transform.scale(imagen, tamano)
 
     def cargar_archivo(self):
         try:
@@ -111,6 +148,9 @@ class AgroBotApp:
             self.info = None
             self.estado_inicial = None
             self.estado_actual = None
+            self.estados_camino = []
+            self.resultado = None
+            self.reporte = None
             self.mensaje = f"No se pudo cargar el mundo: {error}"
             self.error = True
             return
@@ -123,6 +163,7 @@ class AgroBotApp:
         self.estados_camino = []
         self.indice_animacion = 0
         self.resultado = None
+        self.reporte = None
         self.mensaje = f"Mundo cargado: {len(cultivos)} cultivos secos."
         self.error = False
 
@@ -132,10 +173,13 @@ class AgroBotApp:
             self.error = True
             return
 
+        self.reporte = None
+        self.resultado = None
+        self.estados_camino = []
         funcion = FUNCIONES_BUSQUEDA[self.algoritmo]
         self.mensaje = f"Ejecutando {NOMBRES_ALGORITMOS[self.algoritmo]}..."
         self.dibujar()
-        pygame.display.flip()
+        self.presentar()
 
         resultado = funcion(self.estado_inicial, self.mundo, self.info)
         self.resultado = resultado
@@ -143,34 +187,32 @@ class AgroBotApp:
         self.indice_animacion = 0
 
         if resultado is None:
-            self.estados_camino = []
             self.mensaje = "No se encontró una solución para este mundo."
             self.error = True
-            print(f"\n{NOMBRES_ALGORITMOS[self.algoritmo]}: no se encontró solución.")
             return
 
         self.estados_camino = resultado["estados"]
         self.mensaje = f"Solución encontrada: {len(resultado['operadores'])} movimientos. Animando..."
         self.error = False
-        mostrar_reporte(NOMBRES_ALGORITMOS[self.algoritmo], resultado)
+        self.ultimo_paso = pygame.time.get_ticks()
+        if len(self.estados_camino) <= 1:
+            self.finalizar_animacion()
 
     def rectangulo_boton(self, nombre):
-        return {
-            "cargar": pygame.Rect(922, 66, 126, 40),
-            "no_informada": pygame.Rect(674, 173, 180, 42),
-            "informada": pygame.Rect(864, 173, 180, 42),
-            "ejecutar": pygame.Rect(674, 354, 370, 48),
-            "reiniciar": pygame.Rect(674, 414, 178, 40),
-            "reanudar": pygame.Rect(866, 414, 178, 40),
-        }[nombre]
+        rectangulos = {
+            "cargar": pygame.Rect(PANEL_X + 452, 206, 192, 52),
+            "no_informada": pygame.Rect(PANEL_X + 30, 308, 278, 52),
+            "informada": pygame.Rect(PANEL_X + 322, 308, 314, 52),
+            "ejecutar": pygame.Rect(PANEL_X + 30, 548, 614, 58),
+            "reiniciar": pygame.Rect(PANEL_X + 30, 622, 296, 50),
+            "reanudar": pygame.Rect(PANEL_X + 344, 622, 300, 50),
+        }
+        return rectangulos[nombre]
 
-    def dibujar_boton(self, nombre, etiqueta, activo=False, deshabilitado=False):
-        rect = self.rectangulo_boton(nombre)
-        color = (223, 229, 224) if deshabilitado else (VERDE if activo else PANEL)
-        color_texto = SECUNDARIO if deshabilitado else (PANEL if activo else TEXTO)
-        pygame.draw.rect(self.pantalla, color, rect, border_radius=8)
-        pygame.draw.rect(self.pantalla, BORDE, rect, 1, border_radius=8)
-        self.texto_centrado(etiqueta, color_texto, rect.center)
+    def dibujar_panel(self, rect):
+        pygame.draw.rect(self.pantalla, FONDO_PANEL, rect)
+        pygame.draw.rect(self.pantalla, BORDE, rect, 3)
+        pygame.draw.rect(self.pantalla, DORADO, rect.inflate(-10, -10), 1)
 
     def texto(self, contenido, posicion, color=TEXTO, fuente=None):
         superficie = (fuente or self.fuente).render(str(contenido), True, color)
@@ -180,88 +222,136 @@ class AgroBotApp:
         superficie = (fuente or self.fuente).render(str(contenido), True, color)
         self.pantalla.blit(superficie, superficie.get_rect(center=centro))
 
+    def dibujar_boton(self, nombre, etiqueta, activo=False, deshabilitado=False):
+        rect = self.rectangulo_boton(nombre)
+        if deshabilitado:
+            color, color_texto = TARJETA, SECUNDARIO
+        elif activo:
+            color, color_texto = VERDE, FONDO
+        else:
+            color, color_texto = TARJETA_CLARA, TEXTO
+        pygame.draw.rect(self.pantalla, color, rect)
+        pygame.draw.rect(self.pantalla, BORDE if not activo else DORADO, rect, 3)
+        self.texto_centrado(etiqueta, color_texto, rect.center, self.fuente_pequena)
+
+    def dibujar_encabezado(self):
+        pygame.draw.rect(self.pantalla, FONDO_PANEL, (0, 0, ANCHO, 128))
+        pygame.draw.line(self.pantalla, BORDE, (0, 127), (ANCHO, 127), 4)
+        self.texto("AGROBOT", (48, 24), VERDE_CLARO, self.fuente_titulo)
+        self.texto("", (52, 76), DORADO, self.fuente_pequena)
+        self.texto("", (PANEL_X, 54), SECUNDARIO, self.fuente_pequena)
+        for x in range(795, 847, 12):
+            pygame.draw.rect(self.pantalla, DORADO, (x, 43, 6, 6))
+            pygame.draw.rect(self.pantalla, VERDE, (x, 57, 6, 6))
+
     def dibujar_tablero(self):
+        x0, y0 = ORIGEN_TABLERO
+        tablero = pygame.Rect(x0 - 12, y0 - 12, 10 * TAM_CASILLA + 24, 10 * TAM_CASILLA + 24)
+        pygame.draw.rect(self.pantalla, (30, 49, 39), tablero)
+        pygame.draw.rect(self.pantalla, BORDE, tablero, 4)
         if self.mundo is None or self.estado_actual is None:
-            panel = pygame.Rect(ORIGEN_TABLERO[0], ORIGEN_TABLERO[1], 10 * TAM_CASILLA, 10 * TAM_CASILLA)
-            pygame.draw.rect(self.pantalla, PANEL, panel, border_radius=10)
-            self.texto_centrado("Carga un archivo para visualizar el mundo", SECUNDARIO, panel.center)
+            self.texto_centrado("CARGA UN MAPA PARA INICIAR", SECUNDARIO, tablero.center, self.fuente)
             return
 
-        x0, y0 = ORIGEN_TABLERO
         cultivos_pendientes = self.estado_actual.cultivos
         for fila in range(10):
             for columna in range(10):
                 valor = self.mundo[fila][columna]
                 rect = pygame.Rect(x0 + columna * TAM_CASILLA, y0 + fila * TAM_CASILLA, TAM_CASILLA, TAM_CASILLA)
-                fondo = OBSTACULO if valor == 1 else PANEL
-                pygame.draw.rect(self.pantalla, fondo, rect)
-                pygame.draw.rect(self.pantalla, BORDE, rect, 1)
-
                 posicion = (fila, columna)
+                pygame.draw.rect(self.pantalla, TIERRA if valor != 1 else OBSTACULO, rect)
+
                 if valor == 1:
-                    self.texto_centrado("X", (220, 224, 220), rect.center, self.fuente_casilla)
-                elif valor == 4:
-                    self.texto_centrado("D", VERDE, rect.center, self.fuente_casilla)
-                elif valor == 5:
-                    self.texto_centrado("A", AZUL, rect.center, self.fuente_casilla)
+                    pygame.draw.rect(self.pantalla, (61, 77, 60), rect.inflate(-12, -12))
+                    pygame.draw.rect(self.pantalla, BORDE, (rect.x + 14, rect.y + 14, 8, 8))
+                    pygame.draw.rect(self.pantalla, BORDE, (rect.right - 23, rect.bottom - 22, 8, 8))
                 elif valor == 3:
-                    color = CULTIVO_SECO if posicion in cultivos_pendientes else CULTIVO_TRATADO
-                    pygame.draw.circle(self.pantalla, color, rect.center, 14)
-                    etiqueta = "S" if posicion in cultivos_pendientes else "✓"
-                    self.texto_centrado(etiqueta, TEXTO, rect.center, self.fuente_casilla)
+                    sprite = "tierra_seca" if posicion in cultivos_pendientes else "cultivo_tratado"
+                    imagen = self.sprite_ajustado(sprite, TAM_CASILLA - 2, TAM_CASILLA - 2)
+                    self.pantalla.blit(imagen, imagen.get_rect(center=rect.center))
+                    if posicion in cultivos_pendientes:
+                        pygame.draw.rect(self.pantalla, DORADO, rect, 2)
+                elif valor == 4:
+                    self.dibujar_objeto("fertilizante", rect, TAM_CASILLA - 10)
+                    pygame.draw.rect(self.pantalla, VERDE_CLARO, rect, 2)
+                elif valor == 5:
+                    self.dibujar_objeto("avioneta", rect, TAM_CASILLA - 8)
+                    pygame.draw.rect(self.pantalla, DORADO, rect, 2)
+
+                pygame.draw.rect(self.pantalla, (30, 49, 39), rect, 2)
 
         fila, columna = self.estado_actual.pos
-        centro = (
-            x0 + columna * TAM_CASILLA + TAM_CASILLA // 2,
-            y0 + fila * TAM_CASILLA + TAM_CASILLA // 2,
+        rect_robot = pygame.Rect(
+            x0 + columna * TAM_CASILLA,
+            y0 + fila * TAM_CASILLA,
+            TAM_CASILLA,
+            TAM_CASILLA,
         )
-        pygame.draw.circle(self.pantalla, ROJO, centro, 15)
-        self.texto_centrado("R", PANEL, centro, self.fuente_casilla)
+        self.dibujar_objeto("robot", rect_robot, TAM_CASILLA - 8)
+        pygame.draw.rect(self.pantalla, ROJO, rect_robot, 3)
 
-    def dibujar_panel(self):
-        pygame.draw.rect(self.pantalla, PANEL, (650, 32, 398, 680), border_radius=12)
-        self.texto("Archivo del mundo", (674, 42), fuente=self.fuente_pequena, color=SECUNDARIO)
-        campo = pygame.Rect(674, 64, 238, 42)
-        pygame.draw.rect(self.pantalla, PANEL, campo, border_radius=7)
-        pygame.draw.rect(self.pantalla, VERDE if self.campo_activo else BORDE, campo, 2, border_radius=7)
+    def dibujar_objeto(self, nombre, rect, tamano):
+        imagen = self.sprite_ajustado(nombre, tamano, tamano)
+        self.pantalla.blit(imagen, imagen.get_rect(center=rect.center))
+
+    def dibujar_panel_archivo(self):
+        self.texto("ARCHIVO DEL MUNDO", (PANEL_X + 30, 172), SECUNDARIO, self.fuente_pequena)
+        campo = pygame.Rect(PANEL_X + 30, 202, 404, 58)
+        pygame.draw.rect(self.pantalla, TARJETA, campo)
+        pygame.draw.rect(self.pantalla, DORADO if self.campo_activo else BORDE, campo, 3)
         ruta_visible = self.ruta
-        while self.fuente_pequena.size(ruta_visible)[0] > campo.width - 16 and ruta_visible:
+        while self.fuente_pequena.size(ruta_visible)[0] > campo.width - 22 and ruta_visible:
             ruta_visible = ruta_visible[1:]
-        self.texto(ruta_visible, (campo.x + 8, campo.y + 12), fuente=self.fuente_pequena)
-        self.dibujar_boton("cargar", "Cargar archivo")
+        self.texto(ruta_visible, (campo.x + 12, campo.y + 19), TEXTO, self.fuente_pequena)
+        self.dibujar_boton("cargar", "CARGAR MAPA")
 
-        self.texto("Tipo de búsqueda", (674, 132), fuente=self.fuente_pequena, color=SECUNDARIO)
-        self.dibujar_boton("no_informada", "No informada", self.categoria == "no_informada")
-        self.dibujar_boton("informada", "Informada", self.categoria == "informada")
+    def dibujar_seleccion(self):
+        self.texto("TIPO DE BÚSQUEDA", (PANEL_X + 30, 280), SECUNDARIO, self.fuente_pequena)
+        self.dibujar_boton("no_informada", "NO INFORMADA", self.categoria == "no_informada")
+        self.dibujar_boton("informada", "INFORMADA", self.categoria == "informada")
+        self.texto("ALGORITMO", (PANEL_X + 30, 382), SECUNDARIO, self.fuente_pequena)
 
-        y = 232
-        self.texto("Algoritmo", (674, 217), fuente=self.fuente_pequena, color=SECUNDARIO)
+        y = 410
         for codigo, nombre in ALGORITMOS[self.categoria]:
-            rect = pygame.Rect(674, y, 370, 36)
+            rect = pygame.Rect(PANEL_X + 30, y, 614, 42)
             activo = self.algoritmo == codigo
-            pygame.draw.rect(self.pantalla, VERDE_CLARO if activo else PANEL, rect, border_radius=7)
-            pygame.draw.rect(self.pantalla, VERDE if activo else BORDE, rect, 1, border_radius=7)
-            pygame.draw.circle(self.pantalla, VERDE if activo else BORDE, (rect.x + 18, rect.centery), 7, 2)
+            pygame.draw.rect(self.pantalla, TARJETA_CLARA if activo else TARJETA, rect)
+            pygame.draw.rect(self.pantalla, DORADO if activo else BORDE, rect, 2)
+            pygame.draw.rect(self.pantalla, VERDE if activo else BORDE, (rect.x + 14, rect.y + 13, 16, 16), 2)
             if activo:
-                pygame.draw.circle(self.pantalla, VERDE, (rect.x + 18, rect.centery), 4)
-            self.texto(nombre, (rect.x + 36, rect.y + 8), fuente=self.fuente_pequena)
-            y += 42
+                pygame.draw.rect(self.pantalla, VERDE_CLARO, (rect.x + 18, rect.y + 17, 8, 8))
+            self.texto(nombre.upper(), (rect.x + 48, rect.y + 11), TEXTO, self.fuente_pequena)
+            y += 46
 
-        self.dibujar_boton("ejecutar", "Ejecutar búsqueda", activo=True, deshabilitado=self.mundo is None)
-        self.dibujar_boton("reiniciar", "Reiniciar animación", deshabilitado=not self.estados_camino)
-        self.dibujar_boton("reanudar", "Ver solución", deshabilitado=not self.estados_camino)
+        self.dibujar_boton("ejecutar", "INICIAR BÚSQUEDA", activo=True, deshabilitado=self.mundo is None)
+        self.dibujar_boton("reiniciar", "REINICIAR ANIMACIÓN", deshabilitado=not self.estados_camino)
+        self.dibujar_boton("reanudar", "VER SOLUCIÓN", deshabilitado=not self.estados_camino)
 
-        pygame.draw.line(self.pantalla, BORDE, (674, 474), (1044, 474), 1)
-        self.texto("Estado del agente", (674, 490), fuente=self.fuente_pequena, color=SECUNDARIO)
+    def dibujar_estado(self):
+        rect = pygame.Rect(PANEL_X + 30, 692, 614, 104)
+        self.dibujar_panel(rect)
+        self.texto("TELEMETRÍA", (rect.x + 16, rect.y + 12), DORADO, self.fuente_pequena)
         if self.estado_actual is not None:
-            self.texto(f"Fertilizante: {self.estado_actual.fertilizante}/2", (674, 518), fuente=self.fuente_pequena)
-            self.texto(f"Combustible: {max(0, self.estado_actual.combustible)}", (674, 543), fuente=self.fuente_pequena)
-            self.texto(f"Cultivos pendientes: {len(self.estado_actual.cultivos)}", (674, 568), fuente=self.fuente_pequena)
+            self.dibujar_objeto("fertilizante", pygame.Rect(rect.x + 22, rect.y + 40, 30, 30), 27)
+            self.texto(f"{self.estado_actual.fertilizante}/2", (rect.x + 58, rect.y + 45), TEXTO, self.fuente_pequena)
+            self.texto(f"COMBUSTIBLE {max(0, self.estado_actual.combustible)}", (rect.x + 150, rect.y + 45), TEXTO, self.fuente_pequena)
+            self.texto(f"SEQUÍA {len(self.estado_actual.cultivos)}", (rect.x + 405, rect.y + 45), TEXTO, self.fuente_pequena)
         color_mensaje = ROJO if self.error else SECUNDARIO
-        self.texto("Mensaje", (674, 607), fuente=self.fuente_pequena, color=color_mensaje)
-        lineas = self.dividir_texto(self.mensaje, self.fuente_pequena, 360)
-        for indice, linea in enumerate(lineas[:3]):
-            self.texto(linea, (674, 630 + indice * 20), fuente=self.fuente_pequena, color=color_mensaje)
+        lineas = self.dividir_texto(self.mensaje, self.fuente_pequena, rect.width - 32)
+        for indice, linea in enumerate(lineas[:2]):
+            self.texto(linea, (rect.x + 16, rect.y + 72 + indice * 19), color_mensaje, self.fuente_pequena)
+
+    def dibujar_reporte(self):
+        rect = pygame.Rect(PANEL_X + 30, 808, 614, 210)
+        self.dibujar_panel(rect)
+        self.texto("REPORTE DE BÚSQUEDA", (rect.x + 16, rect.y + 15), DORADO, self.fuente)
+        pygame.draw.line(self.pantalla, BORDE, (rect.x + 16, rect.y + 48), (rect.right - 16, rect.y + 48), 2)
+        if self.reporte is None:
+            return
+
+        lineas = self.reporte.splitlines()
+        for indice, linea in enumerate(lineas):
+            self.texto(linea, (rect.x + 18, rect.y + 65 + indice * 30), TEXTO, self.fuente_pequena)
 
     def dividir_texto(self, contenido, fuente, ancho):
         palabras = str(contenido).split()
@@ -279,52 +369,60 @@ class AgroBotApp:
         return lineas
 
     def dibujar_leyenda(self):
-        y = 710
+        y = 1004
         elementos = [
-            ("X", OBSTACULO, "Obstáculo"),
-            ("S", CULTIVO_SECO, "Cultivo seco"),
-            ("D", VERDE, "Depósito"),
-            ("A", AZUL, "Avioneta"),
-            ("R", ROJO, "AgroBot"),
+            ("ROBOT", ROJO),
+            ("CULTIVO SECO", DORADO),
+            ("CULTIVO TRATADO", VERDE),
+            ("DEPÓSITO", VERDE_CLARO),
+            ("AVIONETA", (130, 190, 224)),
         ]
-        x = 34
-        for letra, color, etiqueta in elementos:
-            pygame.draw.circle(self.pantalla, color, (x + 9, y + 9), 9)
-            self.texto_centrado(letra, PANEL if letra == "X" else TEXTO, (x + 9, y + 9), self.fuente_pequena)
-            self.texto(etiqueta, (x + 23, y + 1), fuente=self.fuente_pequena, color=SECUNDARIO)
-            x += 118
+        x = 52
+        for etiqueta, color in elementos:
+            pygame.draw.rect(self.pantalla, color, (x, y + 3, 14, 14))
+            self.texto(etiqueta, (x + 24, y), SECUNDARIO, self.fuente_pequena)
+            x += 160 if etiqueta != "CULTIVO TRATADO" else 205
 
     def dibujar(self):
         self.pantalla.fill(FONDO)
-        self.texto("AgroBot", (32, 30), fuente=self.fuente_titulo, color=VERDE)
-        self.texto("Planificación de rutas y tratamiento de cultivos", (32, 68), fuente=self.fuente_pequena, color=SECUNDARIO)
+        self.dibujar_encabezado()
+        self.texto("TERRENO  //  10 × 10", (48, 145), DORADO, self.fuente_pequena)
         self.dibujar_tablero()
-        self.dibujar_panel()
+        self.dibujar_panel(pygame.Rect(PANEL_X, PANEL_Y, PANEL_ANCHO, 880))
+        self.dibujar_panel_archivo()
+        self.dibujar_seleccion()
+        self.dibujar_estado()
+        self.dibujar_reporte()
         self.dibujar_leyenda()
 
+    def presentar(self):
+        pygame.transform.scale(self.pantalla, (ANCHO_VENTANA, ALTO_VENTANA), self.ventana)
+        pygame.display.flip()
+
     def manejar_clic(self, posicion):
-        campo = pygame.Rect(674, 64, 238, 42)
-        self.campo_activo = campo.collidepoint(posicion)
+        self.campo_activo = pygame.Rect(PANEL_X + 30, 202, 404, 58).collidepoint(posicion)
 
         if self.rectangulo_boton("cargar").collidepoint(posicion):
             self.cargar_archivo()
             return
-
         if self.rectangulo_boton("no_informada").collidepoint(posicion):
             self.categoria = "no_informada"
             self.algoritmo = "amplitud"
+            self.reporte = None
             return
         if self.rectangulo_boton("informada").collidepoint(posicion):
             self.categoria = "informada"
             self.algoritmo = "avara"
+            self.reporte = None
             return
 
-        y = 232
+        y = 410
         for codigo, _ in ALGORITMOS[self.categoria]:
-            if pygame.Rect(674, y, 370, 36).collidepoint(posicion):
+            if pygame.Rect(PANEL_X + 30, y, 614, 42).collidepoint(posicion):
                 self.algoritmo = codigo
+                self.reporte = None
                 return
-            y += 42
+            y += 46
 
         if self.rectangulo_boton("ejecutar").collidepoint(posicion) and self.mundo is not None:
             self.ejecutar_busqueda()
@@ -332,19 +430,23 @@ class AgroBotApp:
             self.indice_animacion = 0
             self.estado_actual = self.estados_camino[0]
             self.ultimo_paso = pygame.time.get_ticks()
+            self.reporte = None
             self.mensaje = "Reproduciendo la solución desde el inicio."
             self.error = False
         elif self.rectangulo_boton("reanudar").collidepoint(posicion) and self.estados_camino:
             self.indice_animacion = len(self.estados_camino) - 1
             self.estado_actual = self.estados_camino[-1]
-            self.mensaje = "Solución completada."
-            self.error = False
+            self.finalizar_animacion()
 
     def manejar_evento(self, evento):
         if evento.type == pygame.QUIT:
             return False
         if evento.type == pygame.MOUSEBUTTONDOWN and evento.button == 1:
-            self.manejar_clic(evento.pos)
+            posicion_logica = (
+                round(evento.pos[0] * ANCHO / ANCHO_VENTANA),
+                round(evento.pos[1] * ALTO / ALTO_VENTANA),
+            )
+            self.manejar_clic(posicion_logica)
         elif evento.type == pygame.TEXTINPUT and self.campo_activo:
             self.ruta += evento.text
         elif evento.type == pygame.KEYDOWN:
@@ -356,16 +458,27 @@ class AgroBotApp:
                 self.cargar_archivo()
         return True
 
+    def finalizar_animacion(self):
+        if self.resultado is not None:
+            self.reporte = generar_reporte(NOMBRES_ALGORITMOS[self.algoritmo], self.resultado)
+            self.mensaje = "Solución completada."
+            self.error = False
+
     def actualizar_animacion(self):
-        if not self.estados_camino or self.indice_animacion >= len(self.estados_camino) - 1:
+        if not self.estados_camino:
             return
+        if self.indice_animacion >= len(self.estados_camino) - 1:
+            if self.reporte is None and self.resultado is not None:
+                self.finalizar_animacion()
+            return
+
         ahora = pygame.time.get_ticks()
         if ahora - self.ultimo_paso >= 350:
             self.indice_animacion += 1
             self.estado_actual = self.estados_camino[self.indice_animacion]
             self.ultimo_paso = ahora
             if self.indice_animacion == len(self.estados_camino) - 1:
-                self.mensaje = "Solución completada."
+                self.finalizar_animacion()
 
     def ejecutar(self):
         ejecutando = True
@@ -374,7 +487,7 @@ class AgroBotApp:
                 ejecutando = self.manejar_evento(evento) and ejecutando
             self.actualizar_animacion()
             self.dibujar()
-            pygame.display.flip()
+            self.presentar()
             self.reloj.tick(60)
         pygame.quit()
 

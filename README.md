@@ -22,6 +22,6 @@ contener una cuadrícula de 10x10 con valores de `0` a `5`, un AgroBot (`2`), un
 depósito (`4`) y una avioneta (`5`).
 
 Selecciona el tipo de búsqueda y el algoritmo, y pulsa **Ejecutar búsqueda**.
-La ruta encontrada se anima sobre el tablero. Las métricas se muestran en la
-terminal mediante el módulo independiente `reporte.py`; el costo se reporta
-para Costo uniforme y A*.
+La ruta encontrada se anima sobre el tablero y, al finalizar la animación, el
+panel de reporte muestra los nodos expandidos, la profundidad del árbol y el
+tiempo de cómputo. También muestra el costo para Costo uniforme y A*.
