@@ -103,6 +103,9 @@ class AgroBotApp:
         self.sprites = self.cargar_sprites()
         self.ruta = os.path.join(os.path.dirname(__file__), "Prueba1.txt")
         self.campo_activo = False
+        self.cursor_ruta = len(self.ruta)
+        self.ancla_seleccion = None
+        self.portapapeles_inicializado = False
         self.categoria = "no_informada"
         self.algoritmo = "amplitud"
         self.mundo = None
@@ -200,6 +203,7 @@ class AgroBotApp:
 
     def rectangulo_boton(self, nombre):
         rectangulos = {
+            "salir": pygame.Rect(ANCHO - 80, 24, 52, 52),
             "cargar": pygame.Rect(PANEL_X + 452, 206, 192, 52),
             "no_informada": pygame.Rect(PANEL_X + 30, 308, 278, 52),
             "informada": pygame.Rect(PANEL_X + 322, 308, 314, 52),
@@ -240,6 +244,24 @@ class AgroBotApp:
         self.texto("AGROBOT", (48, 24), VERDE_CLARO, self.fuente_titulo)
         self.texto("", (52, 76), DORADO, self.fuente_pequena)
         self.texto("", (PANEL_X, 54), SECUNDARIO, self.fuente_pequena)
+        boton_salir = self.rectangulo_boton("salir")
+        pygame.draw.rect(self.pantalla, TARJETA_CLARA, boton_salir)
+        pygame.draw.rect(self.pantalla, BORDE, boton_salir, 2)
+        margen = 18
+        pygame.draw.line(
+            self.pantalla,
+            TEXTO,
+            (boton_salir.x + margen, boton_salir.y + margen),
+            (boton_salir.right - margen, boton_salir.bottom - margen),
+            3,
+        )
+        pygame.draw.line(
+            self.pantalla,
+            TEXTO,
+            (boton_salir.right - margen, boton_salir.y + margen),
+            (boton_salir.x + margen, boton_salir.bottom - margen),
+            3,
+        )
         for x in range(795, 847, 12):
             pygame.draw.rect(self.pantalla, DORADO, (x, 43, 6, 6))
             pygame.draw.rect(self.pantalla, VERDE, (x, 57, 6, 6))
@@ -299,10 +321,52 @@ class AgroBotApp:
         campo = pygame.Rect(PANEL_X + 30, 202, 404, 58)
         pygame.draw.rect(self.pantalla, TARJETA, campo)
         pygame.draw.rect(self.pantalla, DORADO if self.campo_activo else BORDE, campo, 3)
-        ruta_visible = self.ruta
-        while self.fuente_pequena.size(ruta_visible)[0] > campo.width - 22 and ruta_visible:
-            ruta_visible = ruta_visible[1:]
-        self.texto(ruta_visible, (campo.x + 12, campo.y + 19), TEXTO, self.fuente_pequena)
+        ancho_texto = campo.width - 24
+        inicio = self.cursor_ruta
+        while inicio > 0 and self.fuente_pequena.size(self.ruta[inicio - 1:self.cursor_ruta])[0] <= ancho_texto:
+            inicio -= 1
+        fin = self.cursor_ruta
+        while fin < len(self.ruta) and self.fuente_pequena.size(self.ruta[inicio:fin + 1])[0] <= ancho_texto:
+            fin += 1
+
+        texto_visible = self.ruta[inicio:fin]
+        posicion_texto = (campo.x + 12, campo.y + 19)
+        rect_anterior = self.pantalla.get_clip()
+        self.pantalla.set_clip(campo)
+        self.pantalla.blit(
+            self.fuente_pequena.render(texto_visible, True, TEXTO),
+            posicion_texto,
+        )
+
+        seleccion = self.rango_seleccionado()
+        if seleccion is not None:
+            inicio_seleccion = max(seleccion[0], inicio)
+            fin_seleccion = min(seleccion[1], fin)
+            if inicio_seleccion < fin_seleccion:
+                prefijo = self.fuente_pequena.size(self.ruta[inicio:inicio_seleccion])[0]
+                seleccionado = self.ruta[inicio_seleccion:fin_seleccion]
+                ancho_seleccion = self.fuente_pequena.size(seleccionado)[0]
+                pygame.draw.rect(
+                    self.pantalla,
+                    VERDE,
+                    (posicion_texto[0] + prefijo, campo.y + 15, ancho_seleccion, 27),
+                )
+                texto_seleccionado = self.fuente_pequena.render(seleccionado, True, FONDO)
+                self.pantalla.blit(
+                    texto_seleccionado,
+                    (posicion_texto[0] + prefijo, posicion_texto[1]),
+                )
+        elif self.campo_activo:
+            ancho_cursor = self.fuente_pequena.size(self.ruta[inicio:self.cursor_ruta])[0]
+            x_cursor = posicion_texto[0] + ancho_cursor
+            pygame.draw.line(
+                self.pantalla,
+                TEXTO,
+                (x_cursor, campo.y + 16),
+                (x_cursor, campo.bottom - 16),
+                2,
+            )
+        self.pantalla.set_clip(rect_anterior)
         self.dibujar_boton("cargar", "CARGAR MAPA")
 
     def dibujar_seleccion(self):
@@ -400,7 +464,17 @@ class AgroBotApp:
         pygame.display.flip()
 
     def manejar_clic(self, posicion):
-        self.campo_activo = pygame.Rect(PANEL_X + 30, 202, 404, 58).collidepoint(posicion)
+        campo = pygame.Rect(PANEL_X + 30, 202, 404, 58)
+        self.campo_activo = campo.collidepoint(posicion)
+        if self.campo_activo:
+            self.cursor_ruta = self.cursor_desde_posicion(posicion, campo)
+            self.ancla_seleccion = None
+            pygame.key.start_text_input()
+            pygame.key.set_repeat(400, 40)
+        else:
+            self.ancla_seleccion = None
+            pygame.key.stop_text_input()
+            pygame.key.set_repeat()
 
         if self.rectangulo_boton("cargar").collidepoint(posicion):
             self.cargar_archivo()
@@ -438,6 +512,83 @@ class AgroBotApp:
             self.estado_actual = self.estados_camino[-1]
             self.finalizar_animacion()
 
+    def rango_seleccionado(self):
+        if self.ancla_seleccion is None or self.ancla_seleccion == self.cursor_ruta:
+            return None
+        return (
+            min(self.ancla_seleccion, self.cursor_ruta),
+            max(self.ancla_seleccion, self.cursor_ruta),
+        )
+
+    def cursor_desde_posicion(self, posicion, campo):
+        ancho_texto = campo.width - 24
+        inicio = self.cursor_ruta
+        while inicio > 0 and self.fuente_pequena.size(self.ruta[inicio - 1:self.cursor_ruta])[0] <= ancho_texto:
+            inicio -= 1
+        fin = self.cursor_ruta
+        while fin < len(self.ruta) and self.fuente_pequena.size(self.ruta[inicio:fin + 1])[0] <= ancho_texto:
+            fin += 1
+
+        x_relativo = max(0, posicion[0] - (campo.x + 12))
+        indice = inicio
+        while indice < fin:
+            ancho_siguiente = self.fuente_pequena.size(self.ruta[inicio:indice + 1])[0]
+            ancho_actual = self.fuente_pequena.size(self.ruta[inicio:indice])[0]
+            if x_relativo < (ancho_actual + ancho_siguiente) / 2:
+                break
+            indice += 1
+        return indice
+
+    def reemplazar_seleccion(self, texto):
+        seleccion = self.rango_seleccionado()
+        if seleccion is None:
+            inicio = fin = self.cursor_ruta
+        else:
+            inicio, fin = seleccion
+        self.ruta = self.ruta[:inicio] + texto + self.ruta[fin:]
+        self.cursor_ruta = inicio + len(texto)
+        self.ancla_seleccion = None
+
+    def mover_cursor(self, nueva_posicion, extender=False):
+        if extender:
+            if self.ancla_seleccion is None:
+                self.ancla_seleccion = self.cursor_ruta
+        else:
+            self.ancla_seleccion = None
+        self.cursor_ruta = max(0, min(len(self.ruta), nueva_posicion))
+
+    def inicializar_portapapeles(self):
+        if not self.portapapeles_inicializado:
+            pygame.scrap.init()
+            self.portapapeles_inicializado = True
+
+    def copiar_seleccion(self, eliminar=False):
+        seleccion = self.rango_seleccionado()
+        if seleccion is None:
+            return
+        try:
+            self.inicializar_portapapeles()
+            texto = self.ruta[seleccion[0]:seleccion[1]]
+            pygame.scrap.put(pygame.SCRAP_TEXT, texto.encode("utf-8"))
+        except pygame.error as error:
+            self.mensaje = f"No se pudo acceder al portapapeles: {error}"
+            self.error = True
+            return
+        if eliminar:
+            self.reemplazar_seleccion("")
+
+    def pegar_portapapeles(self):
+        try:
+            self.inicializar_portapapeles()
+            contenido = pygame.scrap.get(pygame.SCRAP_TEXT)
+        except pygame.error as error:
+            self.mensaje = f"No se pudo acceder al portapapeles: {error}"
+            self.error = True
+            return
+        if contenido:
+            texto = contenido.decode("utf-8", errors="replace").rstrip("\x00")
+            self.reemplazar_seleccion(texto)
+
     def manejar_evento(self, evento):
         if evento.type == pygame.QUIT:
             return False
@@ -446,16 +597,61 @@ class AgroBotApp:
                 round(evento.pos[0] * ANCHO / ANCHO_VENTANA),
                 round(evento.pos[1] * ALTO / ALTO_VENTANA),
             )
+            if self.rectangulo_boton("salir").collidepoint(posicion_logica):
+                return False
             self.manejar_clic(posicion_logica)
         elif evento.type == pygame.TEXTINPUT and self.campo_activo:
-            self.ruta += evento.text
+            self.reemplazar_seleccion(evento.text)
         elif evento.type == pygame.KEYDOWN:
             if evento.key == pygame.K_ESCAPE:
                 self.campo_activo = False
-            elif self.campo_activo and evento.key == pygame.K_BACKSPACE:
-                self.ruta = self.ruta[:-1]
-            elif self.campo_activo and evento.key == pygame.K_RETURN:
-                self.cargar_archivo()
+                self.ancla_seleccion = None
+                pygame.key.stop_text_input()
+                pygame.key.set_repeat()
+            elif self.campo_activo:
+                control = evento.mod & pygame.KMOD_CTRL
+                shift = evento.mod & pygame.KMOD_SHIFT
+                if control and evento.key == pygame.K_a:
+                    self.ancla_seleccion = 0
+                    self.cursor_ruta = len(self.ruta)
+                elif control and evento.key == pygame.K_c:
+                    self.copiar_seleccion()
+                elif control and evento.key == pygame.K_x:
+                    self.copiar_seleccion(eliminar=True)
+                elif control and evento.key == pygame.K_v:
+                    self.pegar_portapapeles()
+                elif evento.key == pygame.K_BACKSPACE:
+                    if self.rango_seleccionado() is not None:
+                        self.reemplazar_seleccion("")
+                    elif self.cursor_ruta > 0:
+                        self.ancla_seleccion = self.cursor_ruta - 1
+                        self.reemplazar_seleccion("")
+                elif evento.key == pygame.K_DELETE:
+                    if self.rango_seleccionado() is not None:
+                        self.reemplazar_seleccion("")
+                    elif self.cursor_ruta < len(self.ruta):
+                        self.ancla_seleccion = self.cursor_ruta + 1
+                        self.reemplazar_seleccion("")
+                elif evento.key == pygame.K_LEFT:
+                    seleccion = self.rango_seleccionado()
+                    if seleccion is not None and not shift:
+                        self.cursor_ruta = seleccion[0]
+                        self.ancla_seleccion = None
+                    else:
+                        self.mover_cursor(self.cursor_ruta - 1, shift)
+                elif evento.key == pygame.K_RIGHT:
+                    seleccion = self.rango_seleccionado()
+                    if seleccion is not None and not shift:
+                        self.cursor_ruta = seleccion[1]
+                        self.ancla_seleccion = None
+                    else:
+                        self.mover_cursor(self.cursor_ruta + 1, shift)
+                elif evento.key == pygame.K_HOME:
+                    self.mover_cursor(0, shift)
+                elif evento.key == pygame.K_END:
+                    self.mover_cursor(len(self.ruta), shift)
+                elif evento.key == pygame.K_RETURN:
+                    self.cargar_archivo()
         return True
 
     def finalizar_animacion(self):
