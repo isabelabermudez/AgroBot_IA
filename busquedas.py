@@ -11,7 +11,7 @@ def amplitud(estado_inicial, mundo, info):
 
     raiz = Nodo(estado_inicial)
     frontera = deque([raiz])        # cola FIFO
-    visitados = {estado_inicial}    # estados ya generados
+    visitados = {estado_inicial.clave()}    # estados ya generados
     expandidos = 0
     profundidad_max = 0
 
@@ -31,8 +31,8 @@ def amplitud(estado_inicial, mundo, info):
 
         expandidos += 1
         for hijo in expandir(nodo, mundo, info):
-            if hijo.estado not in visitados:
-                visitados.add(hijo.estado)
+            if hijo.estado.clave() not in visitados:
+                visitados.add(hijo.estado.clave())
                 profundidad_max = max(profundidad_max, hijo.profundidad)
                 frontera.append(hijo)
 
@@ -114,9 +114,9 @@ def preferente_por_profundidad(estado_inicial, mundo, info):
     while cola_profundidad:
         _, _, nodo = heapq.heappop(cola_profundidad)
 
-        if nodo.estado in visitados:
+        if nodo.estado.clave() in visitados:
             continue  # ya se visitó este estado
-        visitados.add(nodo.estado)
+        visitados.add(nodo.estado.clave())
 
         if es_meta(nodo.estado):
             operadores, estados = reconstruir_camino(nodo)
@@ -131,7 +131,7 @@ def preferente_por_profundidad(estado_inicial, mundo, info):
 
         expandidos += 1
         for hijo in expandir(nodo, mundo, info):
-            if hijo.estado not in visitados:
+            if hijo.estado.clave() not in visitados:
                 profundidad_max = max(profundidad_max, hijo.profundidad) 
                 heapq.heappush(cola_profundidad,(-hijo.profundidad,next(contador), hijo))
 
@@ -150,10 +150,10 @@ def preferente_por_profundidad_pila(estado_inicial, mundo, info):
     while frontera:
         nodo = frontera.pop()
 
-        if nodo.estado in visitados:
+        if nodo.estado.clave() in visitados:
                 continue  # ya se visitó este estado
         
-        visitados.add(nodo.estado)
+        visitados.add(nodo.estado.clave())
 
         if es_meta(nodo.estado):
             operadores, estados = reconstruir_camino(nodo)
@@ -168,7 +168,7 @@ def preferente_por_profundidad_pila(estado_inicial, mundo, info):
 
         expandidos += 1
         for hijo in reversed(expandir(nodo, mundo, info)):
-            if hijo.estado not in visitados:
+            if hijo.estado.clave() not in visitados:
                 profundidad_max = max(profundidad_max, hijo.profundidad)
                 frontera.append(hijo)
 
@@ -198,9 +198,9 @@ def busqueda_avara(estado_inicial, mundo, info):
     while cola_avara:
         _, _, nodo = heapq.heappop(cola_avara)
 
-        if nodo.estado in visitados:
+        if nodo.estado.clave() in visitados:
             continue  # ya se visitó este estado
-        visitados.add(nodo.estado)
+        visitados.add(nodo.estado.clave())
 
         if es_meta(nodo.estado):
             operadores, estados = reconstruir_camino(nodo)
@@ -215,7 +215,7 @@ def busqueda_avara(estado_inicial, mundo, info):
 
         expandidos += 1
         for hijo in expandir(nodo, mundo, info):
-            if hijo.estado not in visitados:
+            if hijo.estado.clave() not in visitados:
                 profundidad_max = max(profundidad_max, hijo.profundidad) 
                 heapq.heappush(cola_avara,(heuristica(hijo.estado),next(contador), hijo))
 
