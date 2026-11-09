@@ -3,6 +3,7 @@ import os
 os.environ.setdefault("PYGAME_HIDE_SUPPORT_PROMPT", "1")
 
 import pygame
+from pygame._sdl2 import Window
 
 from busquedas import (
     amplitud,
@@ -93,6 +94,8 @@ class AgroBotApp:
         pygame.init()
         pygame.display.set_caption("AgroBot ")
         self.ventana = pygame.display.set_mode((ANCHO_VENTANA, ALTO_VENTANA))
+        self.ventana_sdl = Window.from_display_module()
+        self.arrastrando_ventana = False
         self.pantalla = pygame.Surface((ANCHO, ALTO))
         self.reloj = pygame.time.Clock()
         self.fuente = pygame.font.SysFont("dejavusansmono", 20, bold=True)
@@ -599,7 +602,13 @@ class AgroBotApp:
             )
             if self.rectangulo_boton("salir").collidepoint(posicion_logica):
                 return False
+            self.arrastrando_ventana = posicion_logica[1] < 128
             self.manejar_clic(posicion_logica)
+        elif evento.type == pygame.MOUSEBUTTONUP and evento.button == 1:
+            self.arrastrando_ventana = False
+        elif evento.type == pygame.MOUSEMOTION and self.arrastrando_ventana:
+            x, y = self.ventana_sdl.position
+            self.ventana_sdl.position = (x + evento.rel[0], y + evento.rel[1])
         elif evento.type == pygame.TEXTINPUT and self.campo_activo:
             self.reemplazar_seleccion(evento.text)
         elif evento.type == pygame.KEYDOWN:

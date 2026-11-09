@@ -63,6 +63,7 @@ En el campo de ruta puedes usar `Ctrl+A` para seleccionar todo, `Ctrl+C` y
 `Ctrl+V` para copiar y pegar, y `Ctrl+X` para cortar. También funcionan las
 teclas `Inicio`, `Fin`, `Supr` y `Retroceso`. Usa el botón **×** de la esquina
 superior derecha para cerrar la interfaz.
+Puedes mover la ventana arrastrando la franja superior; su tamaño permanece fijo.
 
 Selecciona el tipo de búsqueda y el algoritmo, y pulsa **Ejecutar búsqueda**.
 La ruta encontrada se anima sobre el tablero y, al finalizar la animación, el
