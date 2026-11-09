@@ -12,7 +12,7 @@ def generar_reporte(nombre_algoritmo, resultado):
         f"Reporte de búsqueda: {nombre_algoritmo}",
         f"Nodos expandidos: {resultado['expandidos']}",
         f"Profundidad del árbol: {resultado['profundidad']}",
-        f"Tiempo de cómputo: {tiempo_escalado:.3f} × 10⁻³ s",
+        f"Tiempo de cómputo: {tiempo_escalado:.3f} × 10^{EXPONENTE_TIEMPO} s",
     ]
     if nombre_algoritmo in ALGORITMOS_CON_COSTO:
         lineas.append(f"Costo de la solución: {resultado['costo']:g}")
