@@ -187,7 +187,7 @@ def busqueda_avara(estado_inicial, mundo, info):
 
     heapq.heappush(
         cola_avara, 
-        (heuristica(raiz.estado),
+        (heuristica(raiz.estado,info),
         next(contador),
         raiz)
         )
@@ -217,7 +217,7 @@ def busqueda_avara(estado_inicial, mundo, info):
         for hijo in expandir(nodo, mundo, info):
             if hijo.estado.clave() not in visitados:
                 profundidad_max = max(profundidad_max, hijo.profundidad) 
-                heapq.heappush(cola_avara,(heuristica(hijo.estado),next(contador), hijo))
+                heapq.heappush(cola_avara,(heuristica(hijo.estado, info),next(contador), hijo))
 
     return None  # no hay solucion
 
@@ -233,7 +233,7 @@ def busqueda_a_estrella(estado_inicial, mundo, info):
     # prioridad  f = g + h
     heapq.heappush(
         cola_prioridad, 
-        ( raiz.costo + heuristica(raiz.estado),
+        ( raiz.costo + heuristica(raiz.estado, info),
         next(contador),
         raiz)
         )
@@ -270,7 +270,7 @@ def busqueda_a_estrella(estado_inicial, mundo, info):
                 
                 mejores_costos[hijo.estado] = hijo.costo
                 profundidad_max = max(profundidad_max, hijo.profundidad) 
-                costo_estimado_hijo = hijo.costo + heuristica(hijo.estado)
+                costo_estimado_hijo = hijo.costo + heuristica(hijo.estado, info)
 
                 heapq.heappush(cola_prioridad,(costo_estimado_hijo,next(contador), hijo))
                 

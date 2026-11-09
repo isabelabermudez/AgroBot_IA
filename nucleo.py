@@ -155,18 +155,42 @@ def reconstruir_camino(nodo):
     estados.reverse()
     return operadores, estados
 
-#  h(n) = distancia Manhattan al cultivo pendiente más lejano * costo mínimo por paso (0.5)
-def heuristica(estado):  
-    
-    cultivos = estado.cultivos
 
-    if not cultivos:
+def heuristica(estado, info):  
+
+    if not estado.cultivos:
         return 0  # No hay cultivos pendientes, heurística es 0
+
+    if estado.fertilizante == 0:
+        # Si no tiene fertilizante, debe ir al depósito primero
+        distancia_deposito = distancia_manhattan(estado.pos, info.deposito)
+        # Después de recoger el fertilizante, como minimo debera ir al cultivo más lejano
+        mas_lejano = max(distancia_manhattan(info.deposito, c) for c in estado.cultivos)
+
+        pasos_totales = distancia_deposito + mas_lejano
+    else:
+        pasos_totales = max(distancia_manhattan(estado.pos, c) for c in estado.cultivos)
+
+        # Si hay más cultivos que unidades, debe pasar por el depósito
+        if len(estado.cultivos) > estado.fertilizante:
+            recorrido_total = (distancia_manhattan(estado.pos, info.deposito)
+                            + min(distancia_manhattan(info.deposito, c) for c in estado.cultivos))
+            pasos_totales = max(pasos_totales, recorrido_total)
+
+
     
-    mas_lejano= max(distancia_manhattan(estado.pos, c) for c in estado.cultivos)  # Tomamos la distancia mínima al cultivo más lejano
+    return costo_minimo(pasos_totales, estado.combustible) 
 
 
-    return mas_lejano * COSTO_AVIONETA  # Costo estimado 
+# Calcula el Costo mínimo de 'pasos' o movimientos según el combustible de la avioneta.
+def costo_minimo(pasos, combustible):
+    if combustible == SIN_SUBIR:
+        return pasos * COSTO_AVIONETA          # podría subirse en el camino
+    if combustible == 0:
+        return pasos * COSTO_NORMAL
+    return (COSTO_AVIONETA * min(pasos, combustible)       #calcula el costo de los pasos que puede hacer con la avioneta + el costo de los pasos que le faltan por hacer con el costo normal
+            + COSTO_NORMAL * max(pasos - combustible, 0))
+
 
 def distancia_manhattan(pos1, pos2):
     return abs(pos1[0] - pos2[0]) + abs(pos1[1] - pos2[1])
