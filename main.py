@@ -392,7 +392,7 @@ class AgroBotApp:
     def dibujar_estado(self):
         rect = pygame.Rect(PANEL_X + 30, 692, 614, 104)
         self.dibujar_panel(rect)
-        self.texto("TELEMETRÍA", (rect.x + 16, rect.y + 12), DORADO, self.fuente_pequena)
+        self.texto("Datos real time", (rect.x + 16, rect.y + 12), DORADO, self.fuente_pequena)
         if self.estado_actual is not None:
             self.dibujar_objeto("fertilizante", pygame.Rect(rect.x + 22, rect.y + 40, 30, 30), 27)
             self.texto(f"{self.estado_actual.fertilizante}/2", (rect.x + 58, rect.y + 45), TEXTO, self.fuente_pequena)
@@ -430,20 +430,7 @@ class AgroBotApp:
             lineas.append(linea)
         return lineas
 
-    def dibujar_leyenda(self):
-        y = 1004
-        elementos = [
-            ("ROBOT", ROJO),
-            ("CULTIVO SECO", DORADO),
-            ("CULTIVO TRATADO", VERDE),
-            ("DEPÓSITO", VERDE_CLARO),
-            ("AVIONETA", (130, 190, 224)),
-        ]
-        x = 52
-        for etiqueta, color in elementos:
-            pygame.draw.rect(self.pantalla, color, (x, y + 3, 14, 14))
-            self.texto(etiqueta, (x + 24, y), SECUNDARIO, self.fuente_pequena)
-            x += 160 if etiqueta != "CULTIVO TRATADO" else 205
+    
 
     def dibujar(self):
         self.pantalla.fill(FONDO)
@@ -455,7 +442,6 @@ class AgroBotApp:
         self.dibujar_seleccion()
         self.dibujar_estado()
         self.dibujar_reporte()
-        self.dibujar_leyenda()
         self.dibujar_menu_pruebas()
 
     def presentar(self):
@@ -574,6 +560,7 @@ class AgroBotApp:
 
 
 def main():
+    
     AgroBotApp().ejecutar()
 
 
