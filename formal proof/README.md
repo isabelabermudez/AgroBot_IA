@@ -1,1 +1,0 @@
-# formal proof

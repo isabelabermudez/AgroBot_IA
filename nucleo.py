@@ -177,7 +177,10 @@ def heuristica(estado, info):
                             + min(distancia_manhattan(info.deposito, c) for c in estado.cultivos))
             pasos_totales = max(pasos_totales, recorrido_total)
 
+    # ...igual que ahora hasta calcular pasos_totales...
 
+    
+    
     
     return costo_minimo(pasos_totales, estado.combustible) 
 
